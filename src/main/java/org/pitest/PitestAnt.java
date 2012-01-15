@@ -2,18 +2,27 @@ package org.pitest;
 
 
 import org.apache.tools.ant.Task;
+import org.pitest.coverage.execute.CoverageOptions;
+import org.pitest.coverage.execute.LaunchOptions;
 import org.pitest.functional.FCollection;
 import org.pitest.internal.ClassPath;
+import org.pitest.internal.ClassPathByteArraySource;
 import org.pitest.internal.IsolationUtils;
 import org.pitest.internal.classloader.DefaultPITClassloader;
 import org.pitest.mutationtest.CompoundListenerFactory;
+import org.pitest.mutationtest.CoverageDatabase;
+import org.pitest.mutationtest.DefaultCoverageDatabase;
+import org.pitest.mutationtest.MutationClassPaths;
 import org.pitest.mutationtest.MutationCoverageReport;
 import org.pitest.mutationtest.ReportOptions;
+import org.pitest.mutationtest.Timings;
+import org.pitest.mutationtest.config.ConfigurationFactory;
 import org.pitest.mutationtest.instrument.JarCreatingJarFinder;
 import org.pitest.mutationtest.instrument.KnownLocationJavaAgentFinder;
 import org.pitest.mutationtest.report.DatedDirectoryResultOutputStrategy;
 import org.pitest.mutationtest.report.OutputFormat;
 import org.pitest.mutationtest.report.ResultOutputStrategy;
+import org.pitest.testng.TestGroupConfig;
 import org.pitest.util.Glob;
 import org.pitest.util.JavaAgent;
 
@@ -47,13 +56,23 @@ public class PitestAnt extends Task {
         data.setMutators(Collections.EMPTY_LIST);
         data.addOutputFormats(Arrays.asList(OutputFormat.HTML));
 
+
+        TestGroupConfig conf = new TestGroupConfig(
+                Collections.EMPTY_LIST,
+                Collections.EMPTY_LIST);
+        ConfigurationFactory configFactory = new ConfigurationFactory(conf,
+                new ClassPathByteArraySource(data.getClassPath()));
+
+        data.setGroupConfig(conf);
+        data.setConfiguration(configFactory.createConfiguration());
+
         runReport(data);
 
     }
 
 
     private void runReport(ReportOptions data) {
-        final ClassPath cp = data.getClassPath(true).getOrElse(new ClassPath());
+        final ClassPath cp = data.getClassPath();
 
         // workaround for apparent java 1.5 JVM bug . . . might not play nicely
         // with distributed testing
@@ -67,8 +86,15 @@ public class PitestAnt extends Task {
                 FCollection.map(data.getOutputFormats(),
                         OutputFormat.createFactoryForFormat(reportOutput)));
 
-        final MutationCoverageReport report = new MutationCoverageReport(data, ja,
-                reportFactory, true);
+        CoverageOptions coverageOptions = data.createCoverageOptions();
+        LaunchOptions launchOptions = new LaunchOptions(ja, data.getJvmArgs());
+        MutationClassPaths cps = data.getMutationClassPaths();
+
+        Timings timings = new Timings();
+        final CoverageDatabase coverageDatabase = new DefaultCoverageDatabase(
+                coverageOptions, launchOptions, cps, timings);
+        final MutationCoverageReport report = new MutationCoverageReport(
+                coverageDatabase, data, reportFactory, timings);
 
         // Create new classloader under boot
         final ClassLoader loader = new DefaultPITClassloader(cp,
