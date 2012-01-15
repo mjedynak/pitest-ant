@@ -2,6 +2,7 @@ package org.pitest;
 
 
 import org.apache.tools.ant.Task;
+import org.pitest.classpath.ClasspathConverter;
 import org.pitest.coverage.execute.CoverageOptions;
 import org.pitest.coverage.execute.LaunchOptions;
 import org.pitest.functional.FCollection;
@@ -9,13 +10,7 @@ import org.pitest.internal.ClassPath;
 import org.pitest.internal.ClassPathByteArraySource;
 import org.pitest.internal.IsolationUtils;
 import org.pitest.internal.classloader.DefaultPITClassloader;
-import org.pitest.mutationtest.CompoundListenerFactory;
-import org.pitest.mutationtest.CoverageDatabase;
-import org.pitest.mutationtest.DefaultCoverageDatabase;
-import org.pitest.mutationtest.MutationClassPaths;
-import org.pitest.mutationtest.MutationCoverageReport;
-import org.pitest.mutationtest.ReportOptions;
-import org.pitest.mutationtest.Timings;
+import org.pitest.mutationtest.*;
 import org.pitest.mutationtest.config.ConfigurationFactory;
 import org.pitest.mutationtest.instrument.JarCreatingJarFinder;
 import org.pitest.mutationtest.instrument.KnownLocationJavaAgentFinder;
@@ -29,10 +24,11 @@ import org.pitest.util.JavaAgent;
 import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 public class PitestAnt extends Task {
 
-    private static final String PATH_SEPARATOR = System.getProperty("path.separator");
+    private ClasspathConverter classpathConverter = new ClasspathConverter();
 
     private String classesInScope;
     private String sourceDirs;
@@ -48,14 +44,13 @@ public class PitestAnt extends Task {
         data.setClassesInScope(FCollection.map(Arrays.asList(classesInScope), Glob.toGlobPredicate()));
         data.setSourceDirs(Arrays.asList(new File(sourceDirs)));
 
-        String[] classpathElementsArray = classpath.split(PATH_SEPARATOR);
-        data.setClassPathElements(Arrays.asList(classpathElementsArray));
+        List<String> classpathList = classpathConverter.convertClasspathToList(classpath);
+        data.setClassPathElements(classpathList);
 
         data.setExcludedMethods(Collections.EMPTY_LIST);
         data.setLoggingClasses(Collections.EMPTY_LIST);
         data.setMutators(Collections.EMPTY_LIST);
         data.addOutputFormats(Arrays.asList(OutputFormat.HTML));
-
 
         TestGroupConfig conf = new TestGroupConfig(
                 Collections.EMPTY_LIST,
