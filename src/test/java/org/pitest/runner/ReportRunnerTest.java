@@ -23,6 +23,8 @@ import static org.mockito.Mockito.verify;
 @RunWith(MockitoJUnitRunner.class)
 public class ReportRunnerTest {
 
+    private static final String EMPTY_STRING = "";
+
     @Spy
     private ReportRunner reportRunner;
     @Mock
@@ -44,7 +46,7 @@ public class ReportRunnerTest {
     public void shouldRunReportWithClassLoaderChanging() {
         // given
         given(reportOptions.getClassPath()).willReturn(classpath);
-        given(reportOptions.getReportDir()).willReturn("anyDir");
+        given(reportOptions.getReportDir()).willReturn(EMPTY_STRING);
         given(reportOptions.getMutationClassPaths()).willReturn(mutationClasspaths);
         given(jarCreatingJarFinder.getJarLocation()).willReturn(mock(Option.class));
         given(reportRunner.getJarCreatingJarFinder(classpath)).willReturn(jarCreatingJarFinder);
