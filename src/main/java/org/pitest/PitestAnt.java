@@ -3,23 +3,14 @@ package org.pitest;
 
 import org.apache.tools.ant.Task;
 import org.pitest.classpath.ClasspathConverter;
-import org.pitest.coverage.execute.CoverageOptions;
-import org.pitest.coverage.execute.LaunchOptions;
 import org.pitest.functional.FCollection;
-import org.pitest.internal.ClassPath;
 import org.pitest.internal.ClassPathByteArraySource;
-import org.pitest.internal.IsolationUtils;
-import org.pitest.internal.classloader.DefaultPITClassloader;
-import org.pitest.mutationtest.*;
+import org.pitest.mutationtest.ReportOptions;
 import org.pitest.mutationtest.config.ConfigurationFactory;
-import org.pitest.mutationtest.instrument.JarCreatingJarFinder;
-import org.pitest.mutationtest.instrument.KnownLocationJavaAgentFinder;
-import org.pitest.mutationtest.report.DatedDirectoryResultOutputStrategy;
 import org.pitest.mutationtest.report.OutputFormat;
-import org.pitest.mutationtest.report.ResultOutputStrategy;
+import org.pitest.runner.ReportRunner;
 import org.pitest.testng.TestGroupConfig;
 import org.pitest.util.Glob;
-import org.pitest.util.JavaAgent;
 
 import java.io.File;
 import java.util.Arrays;
@@ -29,6 +20,8 @@ import java.util.List;
 public class PitestAnt extends Task {
 
     private ClasspathConverter classpathConverter = new ClasspathConverter();
+
+    private ReportRunner reportRunner = new ReportRunner();
 
     private String classesInScope;
     private String sourceDirs;
@@ -67,51 +60,7 @@ public class PitestAnt extends Task {
 
 
     private void runReport(ReportOptions data) {
-        final ClassPath cp = data.getClassPath();
-
-        // workaround for apparent java 1.5 JVM bug . . . might not play nicely
-        // with distributed testing
-        final JavaAgent jac = new JarCreatingJarFinder(cp);
-        final KnownLocationJavaAgentFinder ja = new KnownLocationJavaAgentFinder(
-                jac.getJarLocation().value());
-
-        final ResultOutputStrategy reportOutput = new DatedDirectoryResultOutputStrategy(
-                data.getReportDir());
-        final CompoundListenerFactory reportFactory = new CompoundListenerFactory(
-                FCollection.map(data.getOutputFormats(),
-                        OutputFormat.createFactoryForFormat(reportOutput)));
-
-        CoverageOptions coverageOptions = data.createCoverageOptions();
-        LaunchOptions launchOptions = new LaunchOptions(ja, data.getJvmArgs());
-        MutationClassPaths cps = data.getMutationClassPaths();
-
-        Timings timings = new Timings();
-        final CoverageDatabase coverageDatabase = new DefaultCoverageDatabase(
-                coverageOptions, launchOptions, cps, timings);
-        final MutationCoverageReport report = new MutationCoverageReport(
-                coverageDatabase, data, reportFactory, timings);
-
-        // Create new classloader under boot
-        final ClassLoader loader = new DefaultPITClassloader(cp,
-                IsolationUtils.bootClassLoader());
-        final ClassLoader original = IsolationUtils.getContextClassLoader();
-
-        try {
-            IsolationUtils.setContextClassLoader(loader);
-
-            final Runnable run = (Runnable) IsolationUtils.cloneForLoader(report,
-                    loader);
-
-            run.run();
-
-        } catch (final Exception e) {
-            throw new RuntimeException(e.getMessage(), e);
-        } finally {
-            IsolationUtils.setContextClassLoader(original);
-            jac.close();
-            ja.close();
-
-        }
+        reportRunner.runReport(data);
     }
 
     public void setClassesInScope(String classesInScope) {
