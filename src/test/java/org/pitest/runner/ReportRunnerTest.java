@@ -42,6 +42,7 @@ public class ReportRunnerTest {
     @Mock
     private MutationClassPaths mutationClasspaths;
 
+    @SuppressWarnings("unchecked")
     @Test
     public void shouldRunReportWithClassLoaderChanging() {
         // given
